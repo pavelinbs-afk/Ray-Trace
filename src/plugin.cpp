@@ -3,6 +3,7 @@
 #include "shared.h"
 #include "dynlibutils/module.h"
 #include <entitysystem.h>
+#include <tier1/strtools.h>
 #include "igameevents.h"
 #include <iserver.h>
 #include "schemasystem/schemasystem.h"
@@ -28,10 +29,6 @@ CGameEntitySystem* GameEntitySystem()
     return *reinterpret_cast<CGameEntitySystem**>((uintptr_t)(g_pGameResourceServiceServer) +
         RayTracePlugin::shared::g_pGameConfig->GetOffset("GameEntitySystem"));
 }
-
-class GameSessionConfiguration_t
-{
-};
 
 namespace RayTracePlugin
 {
@@ -78,7 +75,11 @@ namespace RayTracePlugin
         }
 
         g_SMAPI->AddListener(this, this);
-        Listeners::InitListeners();
+        if (!Listeners::InitListeners())
+        {
+            V_strncpy(error, "Failed to initialize KHook listeners", maxlen);
+            return false;
+        }
 
         g_pCVar = shared::g_pCVar;
         ConVar_Register(FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE | FCVAR_GAMEDLL);

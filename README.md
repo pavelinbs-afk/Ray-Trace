@@ -8,20 +8,14 @@ plugins**
 ## Overview
 
 `Ray-Trace` is a lightweight **Metamod interface module** for\
-**Counter-Strike 2** servers.
+**Counter-Strike 2** servers (C++ / MM 2.0 + KHook).
 
-It exposes a shared interface: `CRayTraceInterface002` which can be
-consumed from:
+It exposes a shared interface: `CRayTraceInterface002` for native
+Metamod plugins. The CounterStrikeSharp (C#) API and plugin live in a
+separate tree: `D:/projects/csharp/RayTrace` (RayTraceApi + RayTraceImpl).
 
--   Native **Metamod C++ plugins**
--   Managed **CounterStrikeSharp C# plugins**
-
-The interface is implemented as a **C++ virtual class** and is accessed
-from C# by calling its **vtable functions directly** using a native
-handle.
-
-The goal is to provide a **single tracing backend** usable from both
-worlds without duplicating engine detours.
+The goal is to provide a **single tracing backend** without duplicating
+engine detours.
 
 ------------------------------------------------------------------------
 
@@ -119,20 +113,9 @@ bool LoadRayTrace()
 }
 ```
 
-### C# (CounterStrikeSharp plugin)
+### C# (CounterStrikeSharp)
 
-The recommended way is to use the prebuilt release components:
-
--   Install **RayTraceImpl** as a CS# plugin:
-
-        addons/counterstrikesharp/plugins/RayTraceImpl/RayTraceImpl.dll
-
--   Install **RayTraceApi** as a shared assembly:
-
-        addons/counterstrikesharp/shared/RayTraceApi/RayTraceApi.dll
-
-Then reference `RayTraceApi.dll` in your own plugin project and call the
-API normally.
+See **`D:/projects/csharp/RayTrace`** — build/install RayTraceImpl + RayTraceApi from there.
 
 ------------------------------------------------------------------------
 
@@ -172,80 +155,13 @@ if (g_pRayTrace && g_bRayTraceLoaded)
 
 ------------------------------------------------------------------------
 
-## Calling methods from C# (CounterStrikeSharp plugin)
-
-After installing RayTraceImpl + RayTraceApi from releases:
-
-1.  Add reference in your plugin `.csproj`:
-
-``` xml
-<ItemGroup>
-  <Reference Include="RayTraceApi">
-    <HintPath>libs/RayTraceApi.dll</HintPath>
-  </Reference>
-</ItemGroup>
-```
-
-2.  Use the API:
-
-``` csharp
-using RayTraceAPI;
-using CounterStrikeSharp.API.Modules.Utils;
-
-internal static PluginCapability<CRayTraceInterface> RayTraceInterface { get; } = new("raytrace:craytraceinterface");
-
-public void DoTrace(CCSPlayerController player)
-{
-    var rayTrace = RayTraceInterface.Get();
-    if (rayTrace == null)
-        return;
-
-    var playerPawn = player.PlayerPawn.Value;
-    if (playerPawn == null)
-        return;
-
-    Vector origin = playerPawn.AbsOrigin!;
-    QAngle angles = playerPawn.EyeAngles!;
-
-    TraceOptions options = new();
-
-    if (rayTrace.TraceShape(origin, angles, null, options, out TraceResult result))
-    {
-        Console.WriteLine($"Hit fraction: {result.Fraction}");
-        Console.WriteLine($"EndPos: {result.EndPos}");
-    }
-}
-```
-
-The bridge handles:
-
--   Interface lookup via MetaFactory
--   Correct vtable offsets (Linux / Windows)
--   Delegate binding
--   Native struct layout alignment
-
-------------------------------------------------------------------------
-
-## VTable offsets (ABI note)
-
-Due to C++ ABI differences:
-
-| Platform            | TraceShape index | TraceEndShape index | TraceHullShape index |
-| ------------------- | ---------------- | ------------------- |----------------------|
-| Linux (Itanium ABI) | 2                | 3                   | 4                    |
-| Windows (MSVC ABI)  | 1                | 2                   | 3                    |
-
-Release builds handle this automatically inside RayTraceImpl.
-
-------------------------------------------------------------------------
-
 ## Notes about ABI & Destructor
 
 -   `CRayTraceInterface` has a virtual destructor.
 -   The object is owned by the Ray-Trace Metamod module.
 -   Plugins must never call `delete` on the interface pointer.
--   C# must only clear its handle on unload.
--   All parameters are passed as native pointers (`nint`).
+-   C# consumers: see `D:/projects/csharp/RayTrace` (handle only; never free native object).
+-   All parameters are passed as native pointers.
 
 ------------------------------------------------------------------------
 

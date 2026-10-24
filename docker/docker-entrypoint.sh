@@ -53,19 +53,4 @@ echo "=== Building with GCC | Release | All ==="
 cmake --build . --config Release -j"$(nproc)"
 cd ../
 
-mkdir -p build/addons/counterstrikesharp/plugins
-mkdir -p build/addons/counterstrikesharp/shared/RayTraceApi
-
-dotnet publish managed/RayTrace/RayTraceImpl/RayTraceImpl.csproj \
-  -c Release \
-  -o build/addons/counterstrikesharp/plugins/RayTraceImpl \
-  --no-self-contained \
-  /p:PublishSingleFile=false \
-  /p:CopyLocalLockFileAssemblies=false
-
-dotnet publish managed/RayTrace/RayTraceApi/RayTraceApi.csproj \
-  -c Release \
-  -o build/addons/counterstrikesharp/shared/RayTraceApi \
-  --no-self-contained \
-  /p:PublishSingleFile=false \
-  /p:CopyLocalLockFileAssemblies=false
+# C# (RayTraceApi / RayTraceImpl) lives in a separate repo: D:/projects/csharp/RayTrace

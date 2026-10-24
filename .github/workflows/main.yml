@@ -134,17 +134,7 @@ jobs:
           tar -czf release/RayTrace-MM-${version}-windows.tar.gz \
             -C artifacts/windows .
 
-          mkdir -p RayTrace-CSS-API-${version}/counterstrikesharp/plugins
-          mkdir -p RayTrace-CSS-API-${version}/counterstrikesharp/shared
-
-          cp -r artifacts/linux/counterstrikesharp/plugins/RayTraceImpl \
-            RayTrace-CSS-API-${version}/counterstrikesharp/plugins/
-
-          cp -r artifacts/linux/counterstrikesharp/shared/RayTraceApi \
-            RayTrace-CSS-API-${version}/counterstrikesharp/shared/
-
-          tar -czf release/RayTrace-CSS-API-${version}.tar.gz \
-            RayTrace-CSS-API-${version}
+          # C# packages (RayTraceApi / RayTraceImpl) are released from the csharp/RayTrace repo.
 
       - name: Upload release archives
         uses: svenstaro/upload-release-action@v2

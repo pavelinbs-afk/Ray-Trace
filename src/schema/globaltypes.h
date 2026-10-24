@@ -5,6 +5,7 @@
 #pragma once
 #include <platform.h>
 #include "soundflags.h"
+#include "ray.h"
 
 // struct TransmitInfo
 // {

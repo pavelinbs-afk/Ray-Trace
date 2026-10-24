@@ -6,32 +6,76 @@
 #include <raytrace.h>
 #include <shared.h>
 #include <dynlibutils/module.h>
+#include <entitysystem.h>
+#include "log.h"
 
-class GameSessionConfiguration_t
+namespace RayTracePlugin::Listeners
 {
-};
+    Hooks g_Hooks;
 
-namespace RayTracePlugin::Listeners {
-    SourceHooks sourceHooks;
-
-    SH_DECL_HOOK3_void(INetworkServerService, StartupServer, SH_NOATTRIB, 0, const GameSessionConfiguration_t&, ISource2WorldSession*, const char*);
-    SH_DECL_HOOK2(IGameEventManager2, LoadEventsFromFile, SH_NOATTRIB, 0, int, const char*, bool);
-
-    int g_iLoadEventsFromFileId = -1;
-
-    void InitListeners() {
-        SH_ADD_HOOK(INetworkServerService, StartupServer, shared::g_pNetworkServerService, SH_MEMBER(&sourceHooks, &SourceHooks::Hook_StartupServer), true);
-        auto pCGameEventManagerVTable = DynLibUtils::CModule(shared::g_pServer).GetVirtualTableByName("CGameEventManager").RCast<IGameEventManager2*>();
-        g_iLoadEventsFromFileId = SH_ADD_DVPHOOK(IGameEventManager2, LoadEventsFromFile, pCGameEventManagerVTable, SH_MEMBER(&sourceHooks, &SourceHooks::Hook_LoadEventsFromFile), false);
+    template <typename CLASS, typename RETURN, typename... ARGS>
+    static void AddGlobalByVtbl(KHook::Virtual<CLASS, RETURN, ARGS...>& hook, void* vtbl)
+    {
+        struct
+        {
+            void* v;
+        } fake{vtbl};
+        hook.AddGlobal(reinterpret_cast<CLASS*>(&fake));
     }
 
-    void DestructListeners() {
-        SH_REMOVE_HOOK(INetworkServerService, StartupServer, shared::g_pNetworkServerService, SH_MEMBER(&sourceHooks, &SourceHooks::Hook_StartupServer), true);
-        SH_REMOVE_HOOK_ID(g_iLoadEventsFromFileId);
+    template <typename CLASS, typename RETURN, typename... ARGS>
+    static void RemoveGlobalByVtbl(KHook::Virtual<CLASS, RETURN, ARGS...>& hook, void* vtbl)
+    {
+        if (!vtbl)
+            return;
+        struct
+        {
+            void* v;
+        } fake{vtbl};
+        hook.RemoveGlobal(reinterpret_cast<CLASS*>(&fake));
     }
 
-    void SourceHooks::Hook_StartupServer(const GameSessionConfiguration_t& config,
-                                            ISource2WorldSession*, const char*)
+    Hooks::Hooks()
+        : m_StartupServer(&INetworkServerService::StartupServer, this, nullptr, &Hooks::Hook_StartupServer),
+          m_LoadEventsFromFile(&IGameEventManager2::LoadEventsFromFile, this, &Hooks::Hook_LoadEventsFromFile, nullptr)
+    {
+    }
+
+    bool InitListeners()
+    {
+        return g_Hooks.Init();
+    }
+
+    void DestructListeners()
+    {
+        g_Hooks.Destruct();
+    }
+
+    bool Hooks::Init()
+    {
+        m_StartupServer.Add(shared::g_pNetworkServerService);
+
+        m_pEventMgrVtbl =
+            DynLibUtils::CModule(shared::g_pServer).GetVirtualTableByName("CGameEventManager").RCast<void*>();
+        if (!m_pEventMgrVtbl)
+        {
+            FP_ERROR("Failed to locate CGameEventManager vtable");
+            return false;
+        }
+
+        AddGlobalByVtbl(m_LoadEventsFromFile, m_pEventMgrVtbl);
+        return true;
+    }
+
+    void Hooks::Destruct()
+    {
+        m_StartupServer.Remove(shared::g_pNetworkServerService);
+        RemoveGlobalByVtbl(m_LoadEventsFromFile, m_pEventMgrVtbl);
+        m_pEventMgrVtbl = nullptr;
+    }
+
+    KHook::Return<void> Hooks::Hook_StartupServer(INetworkServerService*, const GameSessionConfiguration_t&,
+                                                  ISource2WorldSession*, const char*)
     {
         if (!shared::g_bDetoursLoaded)
         {
@@ -39,11 +83,15 @@ namespace RayTracePlugin::Listeners {
             RayTrace::g_CRayTrace.Initialize();
             shared::g_bDetoursLoaded = true;
         }
+
+        return {KHook::Action::Ignore};
     }
 
-    int SourceHooks::Hook_LoadEventsFromFile(const char* filename, bool bSearchAll)
+    KHook::Return<int> Hooks::Hook_LoadEventsFromFile(IGameEventManager2* pThis, const char*, bool)
     {
-        ExecuteOnce(shared::g_pGameEventManager = META_IFACEPTR(IGameEventManager2));
-        RETURN_META_VALUE(MRES_IGNORED, 0);
+        if (!shared::g_pGameEventManager && pThis)
+            shared::g_pGameEventManager = pThis;
+
+        return {KHook::Action::Ignore};
     }
 }

@@ -11,7 +11,6 @@
 #include <gameconfig.h>
 #include <igameeventsystem.h>
 #include "schema/cgameresourceserviceserver.h"
-#include <sourcehook/sourcehook.h>
 
 class CGameEntitySystem;
 
@@ -31,17 +30,9 @@ namespace RayTracePlugin::shared
     extern IServerGameClients* g_pGameClients;
     extern CGlobalVars* g_pGlobalVars;
     extern CGameResourceService* g_pGameResourceServiceServer;
-    extern CGameConfig *g_pGameConfig;
-
-    extern SourceHook::ISourceHook *source_hook;
-    extern int source_hook_pluginid;
+    extern CGameConfig* g_pGameConfig;
 
     CGlobalVars* getGlobalVars();
 
     extern bool g_bDetoursLoaded;
 }
-
-#undef SH_GLOB_SHPTR
-#define SH_GLOB_SHPTR RayTracePlugin::shared::source_hook
-#undef SH_GLOB_PLUGPTR
-#define SH_GLOB_PLUGPTR RayTracePlugin::shared::source_hook_pluginid

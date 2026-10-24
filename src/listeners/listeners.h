@@ -4,19 +4,38 @@
 //
 #pragma once
 #include <eiface.h>
-#include <sourcehook.h>
 #include <iserver.h>
+#include <igameevents.h>
+#include <ISmmPlugin.h>
 
-namespace RayTracePlugin::Listeners {
-    void InitListeners();
+// Engine only passes this by reference; KHook needs a complete type for sizeof.
+class GameSessionConfiguration_t
+{
+};
 
+namespace RayTracePlugin::Listeners
+{
+    bool InitListeners();
     void DestructListeners();
 
-    class SourceHooks {
+    class Hooks
+    {
     public:
-        void Hook_StartupServer(const GameSessionConfiguration_t& config, ISource2WorldSession*, const char*);
-        int Hook_LoadEventsFromFile(const char* filename, bool bSearchAll);
+        Hooks();
+
+        KHook::Return<void> Hook_StartupServer(INetworkServerService* pThis, const GameSessionConfiguration_t& config,
+                                               ISource2WorldSession* pWorldSession, const char* pszMapName);
+        KHook::Return<int> Hook_LoadEventsFromFile(IGameEventManager2* pThis, const char* filename, bool bSearchAll);
+
+        bool Init();
+        void Destruct();
+
+    private:
+        KHook::Virtual<INetworkServerService, void, const GameSessionConfiguration_t&, ISource2WorldSession*, const char*>
+            m_StartupServer;
+        KHook::Virtual<IGameEventManager2, int, const char*, bool> m_LoadEventsFromFile;
+        void* m_pEventMgrVtbl = nullptr;
     };
 
-    extern SourceHooks sourceHooks;
+    extern Hooks g_Hooks;
 }
